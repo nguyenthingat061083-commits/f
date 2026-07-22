@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anh Yêu Trúc Phương ❤️</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: #0a0a15;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 0 50px rgba(255,100,150,0.2);
+    }
+  </style>
+<base target="_blank">
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width = 900;
+const H = canvas.height = 600;
+
+// ==================== TIME & STATE ====================
+let time = 0;
+let lastLoveTime = 0;
+let showBubble = false;
+let bubbleTimer = 0;
+let bubbleScale = 0;
+let hearts = [];
+let fireflies = [];
+let stars = [];
+let petals = [];
+
+// ==================== INIT PARTICLES ====================
+for (let i = 0; i < 100; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.5,
+    size: Math.random() * 1.5 + 0.5,
+    twinkle: Math.random() * 200,
+    speed: 0.02 + Math.random() * 0.03
+  });
+}
+
+for (let i = 0; i < 30; i++) {
+  fireflies.push({
+    x: Math.random() * W,
+    y: 250 + Math.random() * 300,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.3,
+    size: 1.5 + Math.random() * 2,
+    pulse: Math.random() * 100,
+    color: `hsl(${50 + Math.random()*30}, 100%, ${60 + Math.random()*30}%)`
+  });
+}
+
+// ==================== PIXEL ART CHARACTERS ====================
+// Boy (left, holding hand)
+const boySprite = [
+  "....................",
+  "......BBBBBB........",
+  ".....BBBBBBBB.......",
+  "....BBBBBBBBBB......",
+  "....BBWWBBWWBB......",
+  "....BBWWBBWWBB......",
+  "....BBBBBBBBBB......",
+  ".....BBBBBBBB.......",
+  "......BBBBBB........",
+  "......SSSSSS........",
+  ".....SSSSSSSS.......",
+  "....SSSSSSSSSS......",
+  "....SSSS..SSSS......",
+  "....SSSS..SSSS......",
+  "....LLLL..LLLL......",
+  "....LLLL..LLLL......",
+  "....FFFF..FFFF......",
+  "....FFFF..FFFF......",
+  "....................",
+  "...................."
+];
+
+// Girl (right, holding hand)
+const girlSprite = [
+  "....................",
+  "......PPPPPP........",
+  ".....PPPPPPPP.......",
+  "....PPPPPPPPPP......",
+  "....PPWWPPWWPP......",
+  "....PPWWPPWWPP......",
+  "....PPPPPPPPPP......",
+  ".....PPPPPPPP.......",
+  "......PPPPPP........",
+  "......DDDDDD........",
+  ".....DDDDDDDD.......",
+  "....DDDDDDDDDD......",
+  "....DDDD..DDDD......",
+  "....DDDD..DDDD......",
+  "....LLLL..LLLL......",
+  "....LLLL..LLLL......",
+  "....SSSS..SSSS......",
+  "....SSSS..SSSS......",
+  "....................",
+  "...................."
+];
+
+const PIXEL = 3.5;
+
+function drawPixelChar(sprite, cx, cy, flip) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (flip) ctx.scale(-1, 1);
+
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[0].length; col++) {
+      const ch = sprite[row][col];
+      if (ch === '.') continue;
+
+      let color;
+      switch(ch) {
+        case 'B': color = '#d4a574'; break; // skin (boy)
+        case 'S': color = '#2a4a8a'; break; // shirt blue
+        case 'L': color = '#1a2a4a'; break; // pants
+        case 'F': color = '#3a2a1a'; break; // shoes
+        case 'P': color = '#f5c5b5'; break; // skin (girl)
+        case 'D': color = '#e85a87'; break; // dress pink
+        case 'W': color = '#ffffff'; break; // eyes
+      }
+
+      ctx.fillStyle = color;
+      ctx.fillRect(
+        (col - sprite[0].length/2) * PIXEL,
+        (row - sprite.length/2) * PIXEL,
+        PIXEL, PIXEL
+      );
+    }
+  }
+  ctx.restore();
+}
+
+// ==================== DRAW FUNCTIONS ====================
+
+function drawSky() {
+  // Night sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  grad.addColorStop(0, '#050510');
+  grad.addColorStop(0.5, '#0a0a20');
+  grad.addColorStop(1, '#151535');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawStars() {
+  for (let s of stars) {
+    const twinkle = Math.sin((time + s.twinkle) * 0.05) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(255,255,255,${0.3 + twinkle * 0.7})`;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  }
+}
+
+function drawMoon() {
+  const mx = W * 0.82, my = H * 0.12, r = 35;
+
+  // Glow
+  const glow = ctx.createRadialGradient(mx, my, r * 0.5, mx, my, r * 4);
+  glow.addColorStop(0, 'rgba(255,255,220,0.12)');
+  glow.addColorStop(1, 'rgba(255,255,220,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(mx - r*4, my - r*4, r*8, r*8);
+
+  // Moon
+  ctx.fillStyle = '#e8e8d0';
+  ctx.beginPath();
+  ctx.arc(mx, my, r, 0, Math.PI*2);
+  ctx.fill();
+
+  // Craters
+  ctx.fillStyle = 'rgba(180,180,160,0.25)';
+  ctx.beginPath();
+  ctx.arc(mx - 8, my - 6, 7, 0, Math.PI*2);
+  ctx.arc(mx + 10, my + 4, 5, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawGround() {
+  // Grass
+  const grad = ctx.createLinearGradient(0, H * 0.55, 0, H);
+  grad.addColorStop(0, '#0a1a0a');
+  grad.addColorStop(0.5, '#0d200d');
+  grad.addColorStop(1, '#0f250f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, H * 0.55, W, H * 0.45);
+
+  // Grass blades
+  ctx.strokeStyle = 'rgba(30,80,30,0.3)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 8) {
+    const h = 5 + Math.sin(i * 0.1 + time * 0.02) * 3;
+    ctx.beginPath();
+    ctx.moveTo(i, H * 0.55);
+    ctx.lineTo(i + Math.sin(time * 0.01 + i) * 2, H * 0.55 - h);
+    ctx.stroke();
+  }
+}
+
+function drawTree(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Trunk
+  ctx.fillStyle = '#1a0f05';
+  ctx.fillRect(-8, 0, 16, 80);
+
+  // Branches
+  ctx.strokeStyle = '#1a0f05';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-5, 30);
+  ctx.lineTo(-25, 10);
+  ctx.moveTo(5, 40);
+  ctx.lineTo(30, 15);
+  ctx.stroke();
+
+  // Leaves (multiple circles)
+  const leafColors = ['#0a2a0a', '#0d300d', '#0a250a', '#0e350e'];
+  const leafPositions = [
+    [0, -30, 35], [-25, -20, 25], [25, -25, 28],
+    [-15, -50, 22], [15, -45, 24], [0, -65, 20]
+  ];
+
+  for (let i = 0; i < leafPositions.length; i++) {
+    const [lx, ly, lr] = leafPositions[i];
+    ctx.fillStyle = leafColors[i % leafColors.length];
+    ctx.beginPath();
+    ctx.arc(lx, ly, lr, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawBench() {
+  const bx = W/2, by = H * 0.62;
+
+  // Bench legs
+  ctx.fillStyle = '#2a1a0a';
+  ctx.fillRect(bx - 70, by + 35, 10, 25);
+  ctx.fillRect(bx + 60, by + 35, 10, 25);
+  ctx.fillRect(bx - 40, by + 35, 8, 22);
+  ctx.fillRect(bx + 32, by + 35, 8, 22);
+
+  // Bench seat
+  ctx.fillStyle = '#3a2515';
+  ctx.fillRect(bx - 80, by + 30, 160, 8);
+
+  // Bench back
+  ctx.fillStyle = '#3a2515';
+  ctx.fillRect(bx - 80, by - 20, 160, 6);
+  ctx.fillRect(bx - 80, by - 5, 160, 6);
+  ctx.fillRect(bx - 80, by + 10, 160, 6);
+
+  // Back supports
+  ctx.fillStyle = '#2a1a0a';
+  ctx.fillRect(bx - 75, by - 20, 6, 55);
+  ctx.fillRect(bx + 69, by - 20, 6, 55);
+}
+
+function drawLampPost(x, y) {
+  // Pole
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(x - 3, y - 120, 6, 120);
+
+  // Arm
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(x - 3, y - 120, 30, 4);
+
+  // Lamp housing
+  ctx.fillStyle = '#2a2a3a';
+  ctx.fillRect(x + 22, y - 128, 14, 12);
+
+  // Light bulb
+  ctx.fillStyle = 'rgba(255,240,180,0.9)';
+  ctx.shadowColor = 'rgba(255,220,100,0.6)';
+  ctx.shadowBlur = 25;
+  ctx.beginPath();
+  ctx.arc(x + 29, y - 122, 5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Light cone
+  const coneGrad = ctx.createRadialGradient(x + 29, y, 10, x + 29, y, 80);
+  coneGrad.addColorStop(0, 'rgba(255,240,180,0.12)');
+  coneGrad.addColorStop(1, 'rgba(255,240,180,0)');
+  ctx.fillStyle = coneGrad;
+  ctx.beginPath();
+  ctx.moveTo(x + 29, y - 122);
+  ctx.lineTo(x - 20, y + 10);
+  ctx.lineTo(x + 78, y + 10);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCharacters() {
+  const bx = W/2 - 35, by = H * 0.62 - 5;
+  const gx = W/2 + 35, gy = H * 0.62 - 5;
+
+  // Gentle sway animation
+  const sway = Math.sin(time * 0.03) * 2;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(bx, by + 55, 25, 6, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(gx, gy + 55, 25, 6, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Draw boy
+  drawPixelChar(boySprite, bx + sway, by, false);
+
+  // Draw girl
+  drawPixelChar(girlSprite, gx - sway, gy, true);
+
+  // Holding hands (connecting hands)
+  ctx.strokeStyle = '#d4a574';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(bx + 28, by + 10);
+  ctx.lineTo(gx - 28, gy + 10);
+  ctx.stroke();
+
+  // Hand hold glow
+  const handX = (bx + gx) / 2;
+  const handY = by + 10;
+  const handGlow = ctx.createRadialGradient(handX, handY, 2, handX, handY, 15);
+  handGlow.addColorStop(0, 'rgba(255,200,200,0.3)');
+  handGlow.addColorStop(1, 'rgba(255,200,200,0)');
+  ctx.fillStyle = handGlow;
+  ctx.beginPath();
+  ctx.arc(handX, handY, 15, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawSpeechBubble() {
+  if (!showBubble) return;
+
+  const bx = W/2 - 80, by = H * 0.62 - 90;
+  const bw = 160, bh = 45;
+
+  ctx.save();
+  ctx.translate(bx + bw/2, by + bh/2);
+  ctx.scale(bubbleScale, bubbleScale);
+  ctx.translate(-(bx + bw/2), -(by + bh/2));
+
+  // Bubble shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.roundRect(bx + 3, by + 3, bw, bh, 15);
+  ctx.fill();
+
+  // Bubble body
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, 15);
+  ctx.fill();
+
+  // Bubble outline
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, 15);
+  ctx.stroke();
+
+  // Tail pointing to boy
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(bx + 30, by + bh);
+  ctx.lineTo(bx + 45, by + bh + 12);
+  ctx.lineTo(bx + 55, by + bh);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(bx + 30, by + bh);
+  ctx.lineTo(bx + 45, by + bh + 12);
+  ctx.lineTo(bx + 55, by + bh);
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = '#e85a87';
+  ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Anh yêu Trúc Phương ❤️', bx + bw/2, by + bh/2);
+
+  ctx.restore();
+}
+
+function drawHearts() {
+  for (let h of hearts) {
+    const alpha = h.life;
+    const size = h.size * h.life;
+
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = h.color;
+
+    // Draw heart shape
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.3);
+    ctx.bezierCurveTo(-size * 0.5, -size * 0.8, -size, -size * 0.3, 0, size * 0.5);
+    ctx.bezierCurveTo(size, -size * 0.3, size * 0.5, -size * 0.8, 0, -size * 0.3);
+    ctx.fill();
+
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFireflies() {
+  for (let f of fireflies) {
+    const pulse = Math.sin((time + f.pulse) * 0.05) * 0.5 + 0.5;
+    ctx.fillStyle = f.color;
+    ctx.globalAlpha = 0.4 + pulse * 0.6;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function drawPetals() {
+  for (let p of petals) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, p.w, p.h, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawVignette() {
+  const vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ==================== UPDATE ====================
+function update() {
+  time++;
+
+  // Every 5 seconds (300 frames at 60fps)
+  if (time - lastLoveTime >= 300) {
+    lastLoveTime = time;
+    showBubble = true;
+    bubbleTimer = 180; // Show for 3 seconds
+    bubbleScale = 0;
+
+    // Spawn hearts
+    for (let i = 0; i < 15; i++) {
+      hearts.push({
+        x: W/2 + (Math.random() - 0.5) * 100,
+        y: H * 0.62 - 30,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1 - Math.random() * 2,
+        size: 8 + Math.random() * 12,
+        life: 1,
+        decay: 0.005 + Math.random() * 0.01,
+        color: `hsl(${340 + Math.random()*30}, 80%, ${50 + Math.random()*20}%)`
+      });
+    }
+
+    // Spawn petals
+    for (let i = 0; i < 10; i++) {
+      petals.push({
+        x: W/2 + (Math.random() - 0.5) * 200,
+        y: H * 0.5 - Math.random() * 100,
+        vx: (Math.random() - 0.5) * 1,
+        vy: 0.5 + Math.random() * 1,
+        w: 3 + Math.random() * 3,
+        h: 2 + Math.random() * 2,
+        angle: Math.random() * Math.PI * 2,
+        angleSpeed: (Math.random() - 0.5) * 0.05,
+        life: 1,
+        decay: 0.003 + Math.random() * 0.005,
+        color: `hsl(${330 + Math.random()*40}, 70%, ${70 + Math.random()*20}%)`
+      });
+    }
+  }
+
+  // Bubble animation
+  if (showBubble) {
+    if (bubbleScale < 1) bubbleScale += 0.08;
+    bubbleTimer--;
+    if (bubbleTimer <= 0) {
+      showBubble = false;
+      bubbleScale = 0;
+    }
+  }
+
+  // Update hearts
+  for (let h of hearts) {
+    h.x += h.vx;
+    h.y += h.vy;
+    h.vx += Math.sin(time * 0.02 + h.x) * 0.02;
+    h.life -= h.decay;
+  }
+  hearts = hearts.filter(h => h.life > 0);
+
+  // Update petals
+  for (let p of petals) {
+    p.x += p.vx + Math.sin(time * 0.01 + p.y) * 0.5;
+    p.y += p.vy;
+    p.angle += p.angleSpeed;
+    p.life -= p.decay;
+  }
+  petals = petals.filter(p => p.life > 0);
+
+  // Update fireflies
+  for (let f of fireflies) {
+    f.x += f.vx;
+    f.y += f.vy;
+    f.vx += (Math.random() - 0.5) * 0.02;
+    f.vy += (Math.random() - 0.5) * 0.02;
+
+    // Wrap around
+    if (f.x < -20) f.x = W + 20;
+    if (f.x > W + 20) f.x = -20;
+    if (f.y < 200) f.y = 550;
+    if (f.y > 550) f.y = 200;
+  }
+}
+
+// ==================== MAIN LOOP ====================
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  drawSky();
+  drawStars();
+  drawMoon();
+  drawGround();
+
+  // Background trees
+  drawTree(80, H * 0.55, 1.2);
+  drawTree(200, H * 0.55, 0.9);
+  drawTree(W - 150, H * 0.55, 1.1);
+  drawTree(W - 60, H * 0.55, 0.8);
+
+  drawLampPost(W * 0.15, H * 0.55);
+  drawLampPost(W * 0.85, H * 0.55);
+
+  drawBench();
+  drawCharacters();
+  drawSpeechBubble();
+  drawHearts();
+  drawPetals();
+  drawFireflies();
+  drawVignette();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
